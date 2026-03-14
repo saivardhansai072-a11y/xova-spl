@@ -1,0 +1,185 @@
+{
+  "identity": {
+    "name": "XOVA",
+    "persona": "The Cyberpunk AI Mentor",
+    "vibe": "Futuristic, immersive, intelligent, dark-mode only, neon-accented",
+    "target_audience": "Students, job seekers, tech enthusiasts",
+    "core_metaphor": "Jarvis-like Personal Command Center"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Orbitron",
+      "body": "Rajdhani",
+      "mono": "Space Mono",
+      "fallback": "System"
+    },
+    "scale": {
+      "h1": { "fontSize": 32, "lineHeight": 40, "fontWeight": "700", "letterSpacing": 1 },
+      "h2": { "fontSize": 24, "lineHeight": 32, "fontWeight": "600", "letterSpacing": 0.5 },
+      "h3": { "fontSize": 20, "lineHeight": 28, "fontWeight": "600" },
+      "body": { "fontSize": 16, "lineHeight": 24, "fontWeight": "400" },
+      "caption": { "fontSize": 12, "lineHeight": 16, "fontWeight": "400", "color": "#A3A3A3" }
+    },
+    "instructions": "Use expo-font to load 'Orbitron' and 'Rajdhani'. If not available, fall back to system sans-serif but keep the bold weights."
+  },
+  "colors": {
+    "background": {
+      "default": "#050505",
+      "paper": "#0A0A0A",
+      "subtle": "#121212"
+    },
+    "primary": {
+      "main": "#00F3FF",
+      "light": "#5CFFFF",
+      "dark": "#009099",
+      "glow": "rgba(0, 243, 255, 0.5)"
+    },
+    "secondary": {
+      "main": "#7B2CBF",
+      "light": "#9D4EDD",
+      "dark": "#5A189A",
+      "glow": "rgba(123, 44, 191, 0.5)"
+    },
+    "accent": {
+      "success": "#00FF9D",
+      "warning": "#FFD60A",
+      "error": "#FF003C",
+      "info": "#3A86FF"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#A3A3A3",
+      "disabled": "#525252",
+      "inverse": "#000000"
+    },
+    "border": {
+      "default": "#333333",
+      "active": "#00F3FF",
+      "subtle": "#1F1F1F"
+    }
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "xxl": 48,
+    "section": 64
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "intensity": 20,
+      "tint": "dark",
+      "borderColor": "rgba(255,255,255,0.1)",
+      "backgroundColor": "rgba(10,10,10,0.6)"
+    },
+    "neon_glow": {
+      "shadowColor": "#00F3FF",
+      "shadowOffset": { "width": 0, "height": 0 },
+      "shadowOpacity": 0.6,
+      "shadowRadius": 10,
+      "elevation": 5
+    },
+    "borders": {
+      "radius_sm": 8,
+      "radius_md": 16,
+      "radius_lg": 24,
+      "radius_full": 9999,
+      "width_thin": 1,
+      "width_thick": 2
+    }
+  },
+  "layout_strategies": {
+    "dashboard": {
+      "type": "bento_grid_stack",
+      "gap": 16,
+      "padding": 20,
+      "header_height": 60
+    },
+    "chat": {
+      "type": "inverted_list",
+      "bubble_radius": 20,
+      "input_height": 60
+    }
+  },
+  "component_implementation_guide": {
+    "Button": {
+      "variants": ["primary", "secondary", "ghost", "outline"],
+      "base_style": "height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center', flexDirection: 'row'",
+      "primary": "backgroundColor: colors.primary.main, shadowColor: colors.primary.main, shadowOpacity: 0.5, shadowRadius: 8",
+      "text_style": "color: colors.text.inverse, fontWeight: '700', fontSize: 16"
+    },
+    "Card": {
+      "base_style": "backgroundColor: colors.background.paper, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border.subtle"
+    },
+    "Input": {
+      "base_style": "height: 50, backgroundColor: colors.background.subtle, borderRadius: 12, paddingHorizontal: 16, color: colors.text.primary, borderWidth: 1, borderColor: colors.border.default"
+    },
+    "Avatar": {
+      "sizes": { "sm": 32, "md": 48, "lg": 64, "xl": 120 },
+      "style": "borderRadius: 9999, borderWidth: 2, borderColor: colors.primary.main"
+    }
+  },
+  "motion": {
+    "library": "react-native-reanimated",
+    "transitions": {
+      "screen_push": "SlideFromRight",
+      "modal_up": "SlideFromBottom",
+      "fade": "FadeIn",
+      "list_item": "FadeInDown.delay(index * 100)"
+    },
+    "interactions": {
+      "press": "scale: 0.98",
+      "active": "opacity: 0.8"
+    }
+  },
+  "assets": {
+    "images": {
+      "login_bg": "https://images.unsplash.com/photo-1758404196311-70c62a445e9c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxjeWJlcnB1bmslMjBjaXR5JTIwbmVvbiUyMGZ1dHVyaXN0aWN8ZW58MHx8fHwxNzczNTA2NTU0fDA&ixlib=rb-4.1.0&q=85",
+      "mentor_avatar_default": "https://images.unsplash.com/photo-1675361770627-763fd7dc3e6f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHw0fHxmdXR1cmlzdGljJTIwYWklMjByb2JvdCUyMGF2YXRhciUyMHBvcnRyYWl0JTIwbmVvbnxlbnwwfHx8fDE3NzM1MDY1NjZ8MA&ixlib=rb-4.1.0&q=85",
+      "mentor_avatar_anime": "https://images.pexels.com/photos/8107903/pexels-photo-8107903.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "startup_mentor": "https://images.unsplash.com/photo-1728112265403-a4aebd5859a5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxmdXR1cmlzdGljJTIwYWklMjByb2JvdCUyMGF2YXRhciUyMHBvcnRyYWl0JTIwbmVvbnxlbnwwfHx8fDE3NzM1MDY1NjZ8MA&ixlib=rb-4.1.0&q=85"
+    },
+    "icons": {
+      "library": "@expo/vector-icons",
+      "preferred_sets": ["MaterialCommunityIcons", "Ionicons", "Feather"],
+      "mapping": {
+        "dashboard": "view-dashboard-outline",
+        "chat": "robot-happy-outline",
+        "voice": "microphone-outline",
+        "profile": "account-circle-outline",
+        "settings": "cog-outline",
+        "interview": "camera-iris",
+        "aptitude": "brain",
+        "startup": "rocket-launch-outline"
+      }
+    }
+  },
+  "instructions_to_main_agent": {
+    "setup": [
+      "Create a 'src/constants/theme.js' file to export colors, spacing, and typography.",
+      "Create a 'src/components/ui' directory for reusable components (Button, Card, Input).",
+      "Ensure all screens use SafeAreaView from 'react-native-safe-area-context'.",
+      "Use 'expo-linear-gradient' for background gradients where needed.",
+      "Install 'expo-blur' for glassmorphism effects.",
+      "Use 'react-native-reanimated' for all animations."
+    ],
+    "rules": [
+      "DO NOT use Tailwind classes directly (className='...') unless NativeWind is configured. Since it is likely not, use StyleSheet.create().",
+      "Always use the dark theme colors. No light mode toggle.",
+      "Ensure touch targets are at least 44x44 points.",
+      "Use the 'Orbitron' font for all headers to maintain the sci-fi vibe.",
+      "Implement the 'GlassContainer' component for all cards on the dashboard."
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Design for DARK MODE only.",
+    "Use deep blacks (#050505) as the primary background, not gray.",
+    "Accent colors (#00F3FF, #7B2CBF) should be used for interactive elements and highlights.",
+    "Avoid flat designs; use subtle gradients and glows.",
+    "Ensure high contrast for text accessibility (WCAG AA).",
+    "Animate key interactions (button presses, screen transitions).",
+    "Use 'data-testid' on all interactive elements for testing."
+  ]
+}
