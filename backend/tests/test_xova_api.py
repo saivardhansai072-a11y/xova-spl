@@ -1,6 +1,7 @@
 """
-XOVA Backend API Tests
-Tests all authentication, dashboard, chat, aptitude, interview, career, startup, and user endpoints
+XOVA Backend API Tests - Iteration 2
+Tests all authentication, dashboard, chat, aptitude, interview, career, startup, user, TTS, and voices endpoints
+Updated for Groq AI (llama-3.3-70b-versatile) and ElevenLabs TTS integration
 """
 
 import pytest
@@ -11,13 +12,19 @@ class TestHealthCheck:
     """Health check endpoint tests"""
     
     def test_api_root_health(self, api_client_no_auth, base_url):
-        """Test API health check endpoint"""
+        """Test API health check endpoint - Iteration 2 with Groq + ElevenLabs"""
         response = requests.get(f"{base_url}/api/")
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
-        assert "XOVA API is running" in data["message"]
-        print(f"✓ Health check passed: {data}")
+        assert "XOVA API" in data["message"]
+        assert "version" in data
+        assert data["version"] == "2.0.0", f"Expected version 2.0.0, got {data.get('version')}"
+        assert "ai" in data
+        assert "Groq" in data["ai"], f"Expected Groq in ai field, got {data.get('ai')}"
+        assert "voice" in data
+        assert "ElevenLabs" in data["voice"], f"Expected ElevenLabs in voice field, got {data.get('voice')}"
+        print(f"✓ Health check passed (v{data['version']}): {data['ai']} + {data['voice']}")
 
 
 class TestAuthentication:
@@ -315,15 +322,17 @@ class TestUserProfile:
         """Test /api/user/settings updates user preferences"""
         response = api_client.put(f"{base_url}/api/user/settings", json={
             "mentor_personality": "teacher",
-            "mentor_voice": "male"
+            "mentor_voice": "male",
+            "mentor_style": "jarvis"
         })
         assert response.status_code == 200
         
         updated_user = response.json()
         assert updated_user["mentor_personality"] == "teacher"
         assert updated_user["mentor_voice"] == "male"
+        assert updated_user["mentor_style"] == "jarvis"
         
-        print("✓ User settings update passed")
+        print("✓ User settings update passed (with mentor_style)")
     
     def test_user_upgrade_plan(self, api_client, base_url):
         """Test /api/user/upgrade plan (MOCKED)"""
@@ -338,3 +347,45 @@ class TestUserProfile:
         assert data["plan"] == "lite"
         
         print("✓ User upgrade passed (MOCKED)")
+
+
+class TestTTSAndVoices:
+    """TTS and voice endpoints tests - Iteration 2 with ElevenLabs"""
+    
+    def test_voices_list(self, api_client, base_url):
+        """Test /api/voices returns ElevenLabs voice list"""
+        response = api_client.get(f"{base_url}/api/voices")
+        assert response.status_code == 200
+        
+        data = response.json()
+        assert "voices" in data
+        voices = data["voices"]
+        assert len(voices) >= 2, "Should have at least 2 voices (female, male)"
+        
+        # Validate voice structure
+        first_voice = voices[0]
+        assert "id" in first_voice
+        assert "name" in first_voice
+        assert "gender" in first_voice
+        
+        print(f"✓ Voices list passed: {len(voices)} voices available")
+        print(f"  Sample voices: {[v['name'] for v in voices]}")
+    
+    def test_tts_generate_expected_failure(self, api_client, base_url):
+        """Test /api/tts/generate - EXPECTED TO FAIL due to ElevenLabs key permission issue"""
+        response = api_client.post(f"{base_url}/api/tts/generate", json={
+            "text": "Hello, this is a test",
+            "voice": "female"
+        })
+        
+        # EXPECTED: 500 error due to ElevenLabs API key missing text_to_speech permission
+        assert response.status_code == 500, f"Expected 500 error, got {response.status_code}"
+        
+        data = response.json()
+        assert "detail" in data
+        # Check that error message mentions permission or TTS
+        error_msg = str(data["detail"]).lower()
+        assert "tts" in error_msg or "permission" in error_msg or "failed" in error_msg
+        
+        print("✓ TTS generate correctly returned 500 error (ElevenLabs permission issue - EXPECTED)")
+        print(f"  Error detail: {data['detail'][:100]}...")

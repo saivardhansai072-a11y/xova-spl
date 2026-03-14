@@ -49,6 +49,7 @@ function RootLayoutNav() {
         <Stack.Screen name="startup" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
         <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="community" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
+        <Stack.Screen name="payment" options={{ animation: 'slide_from_bottom', presentation: 'modal' }} />
       </Stack>
     </>
   );

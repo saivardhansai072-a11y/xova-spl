@@ -7,11 +7,15 @@ import logging
 import uuid
 import httpx
 import random
+import base64
+import json as json_lib
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 from datetime import datetime, timezone, timedelta
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+from groq import AsyncGroq
+from elevenlabs import ElevenLabs
+from elevenlabs.types import VoiceSettings
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,15 +23,28 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
-EMERGENT_LLM_KEY = os.environ['EMERGENT_LLM_KEY']
+
+GROQ_API_KEY = os.environ['GROQ_API_KEY']
+ELEVENLABS_API_KEY = os.environ['ELEVENLABS_API_KEY']
+
+# Initialize clients
+groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+eleven_client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# ─── ElevenLabs Voice IDs ───
+VOICE_IDS = {
+    "female": "21m00Tcm4TlvDq8ikWAM",  # Rachel
+    "male": "pNInz6obpgDQGcFmaJgB",     # Adam
+}
 
 # ─── Models ───
 class ChatRequest(BaseModel):
     message: str
     personality: str = "friendly"
+    voice_enabled: bool = False
 
 class AptitudeSubmit(BaseModel):
     topic_id: str
@@ -53,17 +70,21 @@ class CareerRequest(BaseModel):
 class StartupRequest(BaseModel):
     idea: str
 
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "female"
+
 # ─── Plan Limits ───
 PLAN_LIMITS = {"free": 10, "lite": 40, "pro": 80, "year": 999999}
 
 # ─── Personality Prompts ───
 PERSONALITIES = {
-    "teacher": "You are XOVA, a knowledgeable and patient AI teacher. Explain concepts step by step with examples. Be thorough but clear. Use analogies to simplify complex topics.",
-    "friendly": "You are XOVA, a friendly and approachable AI guide. Be warm, encouraging, and conversational. Use casual language while still being informative and helpful.",
-    "motivator": "You are XOVA, an energetic and motivating AI mentor. Be enthusiastic, uplifting, and push users to achieve their goals. Celebrate their progress and encourage persistence.",
-    "strict": "You are XOVA, a strict but fair AI trainer. Be direct, focused, and demanding of excellence. Give honest feedback and push users to improve. No sugarcoating.",
-    "startup_coach": "You are XOVA, an experienced AI startup coach. Think like a venture capitalist. Focus on market fit, scalability, revenue models, and growth strategies.",
-    "supportive": "You are XOVA, a supportive and empathetic AI mentor. Be understanding, patient, and validating. Recognize struggles and provide emotional support alongside guidance."
+    "teacher": "You are XOVA, a knowledgeable and patient AI teacher. Explain concepts step by step with examples. Be thorough but clear.",
+    "friendly": "You are XOVA, a friendly and approachable AI guide. Be warm, encouraging, and conversational while being informative.",
+    "motivator": "You are XOVA, an energetic and motivating AI mentor. Be enthusiastic, uplifting, and push users to achieve their goals.",
+    "strict": "You are XOVA, a strict but fair AI trainer. Be direct, focused, and demanding of excellence. Give honest feedback.",
+    "startup_coach": "You are XOVA, an experienced AI startup coach. Think like a venture capitalist. Focus on market fit, scalability, and growth.",
+    "supportive": "You are XOVA, a supportive and empathetic AI mentor. Be understanding, patient, and validating."
 }
 
 BASE_SYSTEM_PROMPT = """You are XOVA, an advanced AI mentor assistant designed to help students improve skills, prepare for interviews, practice aptitude, receive career guidance, and develop startup ideas.
@@ -72,9 +93,37 @@ Core rules:
 - Be helpful, encouraging, and knowledgeable
 - Provide clear, actionable advice
 - If users send romantic or emotional messages, respond politely while maintaining your mentor role
-- Keep responses concise but comprehensive
+- Keep responses concise but comprehensive (under 300 words)
 - Use examples when explaining concepts
 """
+
+# ─── Groq AI Helper ───
+async def groq_chat(messages: list, model: str = "llama-3.3-70b-versatile", max_tokens: int = 1024, temperature: float = 0.7) -> str:
+    try:
+        completion = await groq_client.chat.completions.create(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return completion.choices[0].message.content or ""
+    except Exception as e:
+        logging.error("Groq API error: %s", str(e))
+        raise
+
+async def groq_json_chat(messages: list, model: str = "llama-3.3-70b-versatile") -> dict:
+    try:
+        response = await groq_chat(messages, model=model, temperature=0.3, max_tokens=2048)
+        clean = response.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        return json_lib.loads(clean)
+    except json_lib.JSONDecodeError:
+        logging.error("Failed to parse JSON from Groq response")
+        return {}
+    except Exception as e:
+        logging.error("Groq JSON chat error: %s", str(e))
+        return {}
 
 # ─── Auth Helper ───
 async def get_current_user(request: Request) -> dict:
@@ -114,22 +163,6 @@ async def check_and_use_credit(user_id: str) -> bool:
         return False
     await db.users.update_one({"user_id": user_id}, {"$inc": {"credits_used_today": 1}})
     return True
-
-# ─── Chat Sessions ───
-chat_sessions: Dict[str, LlmChat] = {}
-
-def get_chat_session(user_id: str, personality: str = "friendly") -> LlmChat:
-    key = f"{user_id}_{personality}"
-    if key not in chat_sessions:
-        system_msg = BASE_SYSTEM_PROMPT + "\n\n" + PERSONALITIES.get(personality, PERSONALITIES["friendly"])
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=key,
-            system_message=system_msg
-        )
-        chat.with_model("openai", "gpt-5.2")
-        chat_sessions[key] = chat
-    return chat_sessions[key]
 
 # ─── Aptitude Topics Seed Data ───
 APTITUDE_TOPICS = [
@@ -176,16 +209,16 @@ APTITUDE_TOPICS = [
 ]
 
 SEED_QUESTIONS = [
-    {"question_id": "prob_001", "topic_id": "probability", "difficulty": "beginner", "question": "A coin is tossed twice. What is the probability of getting at least one head?", "options": ["1/4", "1/2", "3/4", "1"], "correct_answer": 2, "explanation": "Total outcomes = 4 (HH, HT, TH, TT). Favorable outcomes = 3 (at least one H). P = 3/4."},
-    {"question_id": "prob_002", "topic_id": "probability", "difficulty": "intermediate", "question": "Two dice are thrown. What is the probability that the sum is 7?", "options": ["1/9", "1/6", "5/36", "7/36"], "correct_answer": 1, "explanation": "Favorable outcomes: (1,6),(2,5),(3,4),(4,3),(5,2),(6,1) = 6. Total = 36. P = 6/36 = 1/6."},
-    {"question_id": "tw_001", "topic_id": "time_work", "difficulty": "beginner", "question": "A can do a piece of work in 10 days and B can do it in 15 days. In how many days can they together finish the work?", "options": ["5 days", "6 days", "7 days", "8 days"], "correct_answer": 1, "explanation": "A's rate = 1/10, B's rate = 1/15. Combined = 1/10 + 1/15 = 5/30 = 1/6. They finish in 6 days."},
-    {"question_id": "tw_002", "topic_id": "time_work", "difficulty": "intermediate", "question": "A does 1/3 of a work in 5 days. B does 2/5 of the work in 10 days. In how many days can both together finish the work?", "options": ["75/8 days", "75/4 days", "10 days", "12 days"], "correct_answer": 0, "explanation": "A's rate = (1/3)/5 = 1/15 per day. B's rate = (2/5)/10 = 1/25 per day. Combined = 1/15+1/25 = 8/75. Days = 75/8."},
+    {"question_id": "prob_001", "topic_id": "probability", "difficulty": "beginner", "question": "A coin is tossed twice. What is the probability of getting at least one head?", "options": ["1/4", "1/2", "3/4", "1"], "correct_answer": 2, "explanation": "Total outcomes = 4 (HH, HT, TH, TT). Favorable = 3. P = 3/4."},
+    {"question_id": "prob_002", "topic_id": "probability", "difficulty": "intermediate", "question": "Two dice are thrown. What is the probability that the sum is 7?", "options": ["1/9", "1/6", "5/36", "7/36"], "correct_answer": 1, "explanation": "Favorable: (1,6),(2,5),(3,4),(4,3),(5,2),(6,1) = 6. Total = 36. P = 1/6."},
+    {"question_id": "tw_001", "topic_id": "time_work", "difficulty": "beginner", "question": "A can finish work in 10 days, B in 15 days. Together, how many days?", "options": ["5", "6", "7", "8"], "correct_answer": 1, "explanation": "Combined rate = 1/10 + 1/15 = 1/6. Days = 6."},
     {"question_id": "pct_001", "topic_id": "percentages", "difficulty": "beginner", "question": "What is 25% of 200?", "options": ["25", "40", "50", "75"], "correct_answer": 2, "explanation": "25% of 200 = (25/100) × 200 = 50."},
-    {"question_id": "pct_002", "topic_id": "percentages", "difficulty": "intermediate", "question": "If a number is increased by 20% and then decreased by 20%, the net change is:", "options": ["No change", "4% increase", "4% decrease", "2% decrease"], "correct_answer": 2, "explanation": "Let number = 100. After 20% increase: 120. After 20% decrease: 120 × 0.8 = 96. Net change = 4% decrease."},
-    {"question_id": "rp_001", "topic_id": "ratio_proportion", "difficulty": "beginner", "question": "If A:B = 2:3 and B:C = 4:5, find A:B:C.", "options": ["8:12:15", "2:3:5", "4:6:5", "8:12:10"], "correct_answer": 0, "explanation": "Make B common: A:B = 8:12, B:C = 12:15. So A:B:C = 8:12:15."},
-    {"question_id": "ns_001", "topic_id": "number_series", "difficulty": "beginner", "question": "Find the next number: 2, 6, 12, 20, 30, ?", "options": ["40", "42", "44", "48"], "correct_answer": 1, "explanation": "Differences: 4, 6, 8, 10, 12. Next number = 30 + 12 = 42."},
-    {"question_id": "pl_001", "topic_id": "profit_loss", "difficulty": "beginner", "question": "A shopkeeper buys an article for ₹500 and sells it for ₹600. What is the profit percentage?", "options": ["10%", "15%", "20%", "25%"], "correct_answer": 2, "explanation": "Profit = 600 - 500 = 100. Profit % = (100/500) × 100 = 20%."},
-    {"question_id": "lr_001", "topic_id": "logical_reasoning", "difficulty": "beginner", "question": "All cats are animals. Some animals are wild. Which conclusion is valid?", "options": ["All cats are wild", "Some cats are wild", "Some cats may be wild", "No cats are wild"], "correct_answer": 2, "explanation": "We can't definitively say some cats are wild, but the possibility exists since cats are animals and some animals are wild."},
+    {"question_id": "pct_002", "topic_id": "percentages", "difficulty": "intermediate", "question": "A number increased by 20% then decreased by 20%. Net change?", "options": ["No change", "4% increase", "4% decrease", "2% decrease"], "correct_answer": 2, "explanation": "100 → 120 → 96. Net = 4% decrease."},
+    {"question_id": "rp_001", "topic_id": "ratio_proportion", "difficulty": "beginner", "question": "If A:B = 2:3 and B:C = 4:5, find A:B:C.", "options": ["8:12:15", "2:3:5", "4:6:5", "8:12:10"], "correct_answer": 0, "explanation": "Make B common: A:B = 8:12, B:C = 12:15. A:B:C = 8:12:15."},
+    {"question_id": "ns_001", "topic_id": "number_series", "difficulty": "beginner", "question": "Next: 2, 6, 12, 20, 30, ?", "options": ["40", "42", "44", "48"], "correct_answer": 1, "explanation": "Differences: 4,6,8,10,12. Next = 30+12 = 42."},
+    {"question_id": "pl_001", "topic_id": "profit_loss", "difficulty": "beginner", "question": "Buy at ₹500, sell at ₹600. Profit %?", "options": ["10%", "15%", "20%", "25%"], "correct_answer": 2, "explanation": "Profit = 100. Profit% = (100/500)×100 = 20%."},
+    {"question_id": "lr_001", "topic_id": "logical_reasoning", "difficulty": "beginner", "question": "All cats are animals. Some animals are wild. Which is valid?", "options": ["All cats are wild", "Some cats are wild", "Some cats may be wild", "No cats are wild"], "correct_answer": 2, "explanation": "Can't be certain, but possibility exists."},
+    {"question_id": "si_001", "topic_id": "simple_interest", "difficulty": "beginner", "question": "SI on ₹1000 at 5% for 2 years?", "options": ["₹50", "₹100", "₹150", "₹200"], "correct_answer": 1, "explanation": "SI = PRT/100 = 1000×5×2/100 = ₹100."},
 ]
 
 async def seed_aptitude_data():
@@ -208,41 +241,26 @@ async def seed_aptitude_data():
 
 # ─── AI Question Generation ───
 async def generate_questions_for_topic(topic_id: str, topic_name: str, difficulty: str = "beginner", count: int = 3):
-    prompt = f"""Generate {count} multiple choice aptitude questions about "{topic_name}" at {difficulty} difficulty level.
-
-For each question, provide:
-1. The question text
-2. 4 answer options
-3. The correct answer index (0-3)
-4. A clear step-by-step explanation
-
-Format your response as a JSON array:
-[{{"question": "...", "options": ["A", "B", "C", "D"], "correct_answer": 0, "explanation": "..."}}]
-
-Only output the JSON array, nothing else."""
-
+    prompt = f"""Generate {count} multiple choice aptitude questions about "{topic_name}" at {difficulty} level.
+For each: question text, 4 options, correct_answer index (0-3), explanation.
+Output ONLY a JSON array: [{{"question":"...","options":["A","B","C","D"],"correct_answer":0,"explanation":"..."}}]"""
     try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"qgen_{topic_id}_{uuid.uuid4().hex[:6]}", system_message="You are an expert aptitude question generator. Output only valid JSON.")
-        chat.with_model("openai", "gpt-5.2")
-        response = await chat.send_message(UserMessage(text=prompt))
-        import json
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
-        questions_data = json.loads(clean)
+        data = await groq_json_chat([
+            {"role": "system", "content": "You generate aptitude questions. Output only valid JSON arrays."},
+            {"role": "user", "content": prompt}
+        ])
+        if isinstance(data, list):
+            questions_data = data
+        else:
+            return []
         generated = []
-        for i, q in enumerate(questions_data):
+        for q in questions_data:
             qid = f"{topic_id}_{uuid.uuid4().hex[:8]}"
             doc = {
-                "question_id": qid,
-                "topic_id": topic_id,
-                "difficulty": difficulty,
-                "question": q["question"],
-                "options": q["options"],
-                "correct_answer": q["correct_answer"],
-                "explanation": q["explanation"],
-                "ai_generated": True,
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "question_id": qid, "topic_id": topic_id, "difficulty": difficulty,
+                "question": q.get("question", ""), "options": q.get("options", []),
+                "correct_answer": q.get("correct_answer", 0), "explanation": q.get("explanation", ""),
+                "ai_generated": True, "created_at": datetime.now(timezone.utc).isoformat()
             }
             generated.append(doc)
         if generated:
@@ -250,14 +268,14 @@ Only output the JSON array, nothing else."""
             await db.aptitude_topics.update_one({"topic_id": topic_id}, {"$inc": {"total_questions": len(generated)}})
         return generated
     except Exception as e:
-        logging.error("Failed to generate questions: %s", str(e))
+        logging.error("Question gen error: %s", str(e))
         return []
 
 # ─── Startup Event ───
 @app.on_event("startup")
 async def startup():
     await seed_aptitude_data()
-    logging.info("XOVA backend started")
+    logging.info("XOVA backend started (Groq + ElevenLabs)")
 
 # ─── Auth Endpoints ───
 @api_router.post("/auth/session")
@@ -301,8 +319,7 @@ async def exchange_session(request: Request, response: Response):
 
 @api_router.get("/auth/me")
 async def get_me(request: Request):
-    user = await get_current_user(request)
-    return user
+    return await get_current_user(request)
 
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
@@ -365,17 +382,46 @@ async def send_chat(request: Request, body: ChatRequest):
     if not has_credit:
         raise HTTPException(429, "Daily credit limit reached. Upgrade your plan for more responses.")
     personality = body.personality or user.get("mentor_personality", "friendly")
-    chat = get_chat_session(uid, personality)
+    system_msg = BASE_SYSTEM_PROMPT + "\n\n" + PERSONALITIES.get(personality, PERSONALITIES["friendly"])
+
+    # Load recent chat history for context
+    recent = await db.chat_messages.find({"user_id": uid}, {"_id": 0}).sort("timestamp", -1).limit(20).to_list(20)
+    recent.reverse()
+    messages = [{"role": "system", "content": system_msg}]
+    for m in recent:
+        messages.append({"role": m["role"], "content": m["content"]})
+    messages.append({"role": "user", "content": body.message})
+
     try:
-        ai_response = await chat.send_message(UserMessage(text=body.message))
+        ai_response = await groq_chat(messages, model="llama-3.3-70b-versatile")
     except Exception as e:
-        logging.error("AI error: %s", str(e))
+        logging.error("Chat error: %s", str(e))
         ai_response = "I apologize, I encountered an issue. Please try again."
+
     now = datetime.now(timezone.utc).isoformat()
     user_msg = {"message_id": f"msg_{uuid.uuid4().hex[:12]}", "user_id": uid, "role": "user", "content": body.message, "timestamp": now}
     ai_msg = {"message_id": f"msg_{uuid.uuid4().hex[:12]}", "user_id": uid, "role": "assistant", "content": ai_response, "timestamp": now}
     await db.chat_messages.insert_many([user_msg, ai_msg])
-    return {"response": ai_response, "message_id": ai_msg["message_id"]}
+
+    # Generate TTS if requested
+    audio_base64 = None
+    if body.voice_enabled:
+        try:
+            voice_id = VOICE_IDS.get(user.get("mentor_voice", "female"), VOICE_IDS["female"])
+            audio_generator = eleven_client.text_to_speech.convert(
+                text=ai_response[:500],  # Limit TTS length
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2",
+                voice_settings=VoiceSettings(stability=0.7, similarity_boost=0.8, style=0.3)
+            )
+            audio_data = b""
+            for chunk in audio_generator:
+                audio_data += chunk
+            audio_base64 = base64.b64encode(audio_data).decode()
+        except Exception as e:
+            logging.error("TTS error: %s", str(e))
+
+    return {"response": ai_response, "message_id": ai_msg["message_id"], "audio": audio_base64}
 
 @api_router.get("/chat/history")
 async def get_chat_history(request: Request, limit: int = 50):
@@ -387,12 +433,29 @@ async def get_chat_history(request: Request, limit: int = 50):
 @api_router.delete("/chat/history")
 async def clear_chat_history(request: Request):
     user = await get_current_user(request)
-    uid = user["user_id"]
-    await db.chat_messages.delete_many({"user_id": uid})
-    for key in list(chat_sessions.keys()):
-        if key.startswith(uid):
-            del chat_sessions[key]
+    await db.chat_messages.delete_many({"user_id": user["user_id"]})
     return {"message": "Chat history cleared"}
+
+# ─── TTS Endpoint ───
+@api_router.post("/tts/generate")
+async def generate_tts(request: Request, body: TTSRequest):
+    user = await get_current_user(request)
+    voice_id = VOICE_IDS.get(body.voice, VOICE_IDS["female"])
+    try:
+        audio_generator = eleven_client.text_to_speech.convert(
+            text=body.text[:1000],
+            voice_id=voice_id,
+            model_id="eleven_multilingual_v2",
+            voice_settings=VoiceSettings(stability=0.7, similarity_boost=0.8, style=0.3)
+        )
+        audio_data = b""
+        for chunk in audio_generator:
+            audio_data += chunk
+        audio_b64 = base64.b64encode(audio_data).decode()
+        return {"audio": audio_b64, "voice": body.voice}
+    except Exception as e:
+        logging.error("TTS generation error: %s", str(e))
+        raise HTTPException(500, f"TTS generation failed: {str(e)}")
 
 # ─── Aptitude Endpoints ───
 @api_router.get("/aptitude/topics")
@@ -408,7 +471,7 @@ async def get_topic_questions(request: Request, topic_id: str, difficulty: str =
     if len(questions) < 3:
         topic = await db.aptitude_topics.find_one({"topic_id": topic_id}, {"_id": 0})
         if topic:
-            new_qs = await generate_questions_for_topic(topic_id, topic["name"], difficulty, 5)
+            await generate_questions_for_topic(topic_id, topic["name"], difficulty, 5)
             questions = await db.aptitude_questions.find({"topic_id": topic_id, "difficulty": difficulty}, {"_id": 0}).to_list(50)
     progress = await db.aptitude_progress.find_one({"user_id": user["user_id"], "topic_id": topic_id}, {"_id": 0})
     return {"questions": questions, "progress": progress}
@@ -435,15 +498,11 @@ async def submit_aptitude_answer(request: Request, body: AptitudeSubmit):
         accuracy = round((new_correct / new_total) * 100)
         new_difficulty = progress.get("current_difficulty", "beginner")
         if accuracy >= 80 and new_total >= 5:
-            if new_difficulty == "beginner":
-                new_difficulty = "intermediate"
-            elif new_difficulty == "intermediate":
-                new_difficulty = "advanced"
+            if new_difficulty == "beginner": new_difficulty = "intermediate"
+            elif new_difficulty == "intermediate": new_difficulty = "advanced"
         elif accuracy < 40 and new_total >= 3:
-            if new_difficulty == "advanced":
-                new_difficulty = "intermediate"
-            elif new_difficulty == "intermediate":
-                new_difficulty = "beginner"
+            if new_difficulty == "advanced": new_difficulty = "intermediate"
+            elif new_difficulty == "intermediate": new_difficulty = "beginner"
         await db.aptitude_progress.update_one(
             {"user_id": uid, "topic_id": body.topic_id},
             {"$set": {"correct": new_correct, "total": new_total, "accuracy": accuracy, "current_difficulty": new_difficulty, "last_attempt": datetime.now(timezone.utc).isoformat()}}
@@ -452,17 +511,11 @@ async def submit_aptitude_answer(request: Request, body: AptitudeSubmit):
         await db.aptitude_progress.insert_one({
             "user_id": uid, "topic_id": body.topic_id,
             "correct": 1 if is_correct else 0, "total": 1,
-            "accuracy": 100 if is_correct else 0,
-            "current_difficulty": "beginner",
+            "accuracy": 100 if is_correct else 0, "current_difficulty": "beginner",
             "last_attempt": datetime.now(timezone.utc).isoformat(), "date": today
         })
     await db.users.update_one({"user_id": uid}, {"$inc": {"total_questions_answered": 1, "total_correct": 1 if is_correct else 0}})
-    return {
-        "is_correct": is_correct,
-        "correct_answer": question["correct_answer"],
-        "explanation": question["explanation"],
-        "question": question
-    }
+    return {"is_correct": is_correct, "correct_answer": question["correct_answer"], "explanation": question["explanation"], "question": question}
 
 @api_router.get("/aptitude/progress")
 async def get_aptitude_progress(request: Request):
@@ -478,18 +531,18 @@ async def get_interview_question(request: Request, body: InterviewRequest):
     if not has_credit:
         raise HTTPException(429, "Daily credit limit reached")
     category_prompts = {
-        "hr": "Generate one realistic HR interview question that tests communication and personality. Just the question, nothing else.",
-        "technical": "Generate one technical interview question for a software engineering role. Just the question, nothing else.",
-        "behavioral": "Generate one behavioral interview question using the STAR method format. Just the question, nothing else.",
-        "startup": "Generate one interview question that tests entrepreneurial thinking and innovation. Just the question, nothing else."
+        "hr": "Generate one realistic HR interview question. Just the question.",
+        "technical": "Generate one technical interview question for software engineering. Just the question.",
+        "behavioral": "Generate one behavioral interview question using STAR method. Just the question.",
+        "startup": "Generate one question testing entrepreneurial thinking. Just the question."
     }
-    prompt = category_prompts.get(body.category, category_prompts["hr"])
     try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"interview_{uuid.uuid4().hex[:8]}", system_message="You are an expert interviewer.")
-        chat.with_model("openai", "gpt-5.2")
-        question = await chat.send_message(UserMessage(text=prompt))
+        question = await groq_chat([
+            {"role": "system", "content": "You are an expert interviewer. Give only the question, nothing else."},
+            {"role": "user", "content": category_prompts.get(body.category, category_prompts["hr"])}
+        ], model="llama-3.3-70b-versatile", max_tokens=200)
         return {"question": question.strip()}
-    except Exception as e:
+    except Exception:
         return {"question": "Tell me about yourself and your key strengths."}
 
 @api_router.post("/interview/evaluate")
@@ -499,34 +552,19 @@ async def evaluate_interview(request: Request, body: EvaluateRequest):
     if not has_credit:
         raise HTTPException(429, "Daily credit limit reached")
     prompt = f"""Evaluate this interview answer:
-
 Question: {body.question}
 Answer: {body.answer}
-
-Provide:
-1. Clarity Score (0-100)
-2. Confidence Score (0-100)
-3. Structure Score (0-100)
-4. Communication Score (0-100)
-5. Overall Score (0-100)
-6. Specific improvement suggestions (3 bullet points)
-7. What was done well (2 bullet points)
-
-Format as JSON: {{"clarity": 0, "confidence": 0, "structure": 0, "communication": 0, "overall": 0, "improvements": ["..."], "strengths": ["..."]}}
-Only output the JSON."""
-
+Output ONLY JSON: {{"clarity":0,"confidence":0,"structure":0,"communication":0,"overall":0,"improvements":["..."],"strengths":["..."]}}"""
     try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"eval_{uuid.uuid4().hex[:8]}", system_message="You are an expert interview evaluator. Output only valid JSON.")
-        chat.with_model("openai", "gpt-5.2")
-        response = await chat.send_message(UserMessage(text=prompt))
-        import json
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
-        evaluation = json.loads(clean)
-        return {"evaluation": evaluation}
-    except Exception as e:
-        return {"evaluation": {"clarity": 70, "confidence": 65, "structure": 60, "communication": 70, "overall": 66, "improvements": ["Structure your answer better", "Add specific examples", "Be more concise"], "strengths": ["Good start", "Relevant points"]}}
+        result = await groq_json_chat([
+            {"role": "system", "content": "You evaluate interview answers. Output only valid JSON."},
+            {"role": "user", "content": prompt}
+        ])
+        if result:
+            return {"evaluation": result}
+    except Exception:
+        pass
+    return {"evaluation": {"clarity": 70, "confidence": 65, "structure": 60, "communication": 70, "overall": 66, "improvements": ["Structure better", "Add examples", "Be concise"], "strengths": ["Good start", "Relevant points"]}}
 
 # ─── Career Guidance ───
 @api_router.post("/career/guidance")
@@ -535,31 +573,18 @@ async def get_career_guidance(request: Request, body: CareerRequest):
     has_credit = await check_and_use_credit(user["user_id"])
     if not has_credit:
         raise HTTPException(429, "Daily credit limit reached")
-    prompt = f"""Create a career guidance roadmap for someone interested in "{body.field}".
-
-Include:
-1. Overview of the field (2-3 sentences)
-2. Required skills (5 key skills)
-3. Learning roadmap (6 month plan with monthly milestones)
-4. Recommended resources (3 resources)
-5. Practice recommendations (3 items)
-
-Format as JSON: {{"overview": "...", "skills": ["..."], "roadmap": [{{"month": 1, "focus": "...", "tasks": ["..."]}}], "resources": ["..."], "practice": ["..."]}}
-Only output JSON."""
-
+    prompt = f"""Career roadmap for "{body.field}". Output ONLY JSON:
+{{"overview":"...","skills":["..."],"roadmap":[{{"month":1,"focus":"...","tasks":["..."]}}],"resources":["..."],"practice":["..."]}}"""
     try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"career_{uuid.uuid4().hex[:8]}", system_message="You are an expert career counselor. Output only valid JSON.")
-        chat.with_model("openai", "gpt-5.2")
-        response = await chat.send_message(UserMessage(text=prompt))
-        import json
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
-        guidance = json.loads(clean)
-        return {"guidance": guidance}
-    except Exception as e:
-        logging.error("Career guidance error: %s", str(e))
-        return {"guidance": {"overview": f"The field of {body.field} offers exciting opportunities.", "skills": ["Problem solving", "Communication", "Technical knowledge", "Teamwork", "Continuous learning"], "roadmap": [{"month": 1, "focus": "Fundamentals", "tasks": ["Study core concepts", "Set up development environment"]}], "resources": ["Online courses", "Documentation", "Practice projects"], "practice": ["Build projects", "Solve problems daily", "Join communities"]}}
+        result = await groq_json_chat([
+            {"role": "system", "content": "You are an expert career counselor. Output only valid JSON."},
+            {"role": "user", "content": prompt}
+        ])
+        if result:
+            return {"guidance": result}
+    except Exception:
+        pass
+    return {"guidance": {"overview": f"{body.field} offers exciting opportunities.", "skills": ["Problem solving", "Communication", "Technical knowledge"], "roadmap": [{"month": 1, "focus": "Fundamentals", "tasks": ["Study core concepts"]}], "resources": ["Online courses"], "practice": ["Build projects"]}}
 
 # ─── Startup Mentor ───
 @api_router.post("/startup/advice")
@@ -568,62 +593,41 @@ async def get_startup_advice(request: Request, body: StartupRequest):
     has_credit = await check_and_use_credit(user["user_id"])
     if not has_credit:
         raise HTTPException(429, "Daily credit limit reached")
-    prompt = f"""Analyze this startup idea: "{body.idea}"
-
-Provide:
-1. Idea Validation Score (0-100)
-2. Market potential assessment
-3. Key strengths of the idea (3 points)
-4. Key challenges (3 points)
-5. Product development steps (5 steps)
-6. Marketing strategy suggestions (3 suggestions)
-7. Growth strategy (3 strategies)
-
-Format as JSON: {{"score": 0, "market": "...", "strengths": ["..."], "challenges": ["..."], "dev_steps": ["..."], "marketing": ["..."], "growth": ["..."]}}
-Only output JSON."""
-
+    prompt = f"""Analyze startup idea: "{body.idea}". Output ONLY JSON:
+{{"score":0,"market":"...","strengths":["..."],"challenges":["..."],"dev_steps":["..."],"marketing":["..."],"growth":["..."]}}"""
     try:
-        chat = LlmChat(api_key=EMERGENT_LLM_KEY, session_id=f"startup_{uuid.uuid4().hex[:8]}", system_message="You are an expert startup mentor and VC advisor. Output only valid JSON.")
-        chat.with_model("openai", "gpt-5.2")
-        response = await chat.send_message(UserMessage(text=prompt))
-        import json
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1].rsplit("```", 1)[0]
-        advice = json.loads(clean)
-        return {"advice": advice}
-    except Exception as e:
-        logging.error("Startup advice error: %s", str(e))
-        return {"advice": {"score": 65, "market": "Interesting market opportunity.", "strengths": ["Novel concept", "Growing market", "Clear target audience"], "challenges": ["Competition", "Funding needs", "Market education"], "dev_steps": ["Validate idea", "Build MVP", "Get early users", "Iterate", "Scale"], "marketing": ["Social media", "Content marketing", "Partnerships"], "growth": ["Viral loops", "Referral program", "Strategic partnerships"]}}
+        result = await groq_json_chat([
+            {"role": "system", "content": "You are an expert startup mentor. Output only valid JSON."},
+            {"role": "user", "content": prompt}
+        ])
+        if result:
+            return {"advice": result}
+    except Exception:
+        pass
+    return {"advice": {"score": 65, "market": "Interesting opportunity.", "strengths": ["Novel concept"], "challenges": ["Competition"], "dev_steps": ["Validate", "Build MVP"], "marketing": ["Social media"], "growth": ["Referrals"]}}
 
 # ─── User Profile & Settings ───
 @api_router.get("/user/profile")
 async def get_profile(request: Request):
-    user = await get_current_user(request)
-    return user
+    return await get_current_user(request)
 
 @api_router.put("/user/settings")
 async def update_settings(request: Request, body: SettingsUpdate):
     user = await get_current_user(request)
     updates = {}
-    if body.mentor_personality:
-        updates["mentor_personality"] = body.mentor_personality
-    if body.mentor_voice:
-        updates["mentor_voice"] = body.mentor_voice
-    if body.mentor_style:
-        updates["mentor_style"] = body.mentor_style
+    if body.mentor_personality: updates["mentor_personality"] = body.mentor_personality
+    if body.mentor_voice: updates["mentor_voice"] = body.mentor_voice
+    if body.mentor_style: updates["mentor_style"] = body.mentor_style
     if updates:
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
-    updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    return updated
+    return await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
 
 @api_router.get("/user/credits")
 async def get_credits(request: Request):
     user = await get_current_user(request)
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     credits_used = user.get("credits_used_today", 0)
-    if user.get("last_credit_reset", "") != today:
-        credits_used = 0
+    if user.get("last_credit_reset", "") != today: credits_used = 0
     plan = user.get("plan", "free")
     max_credits = PLAN_LIMITS.get(plan, 10)
     return {"plan": plan, "used": credits_used, "max": max_credits, "remaining": max(max_credits - credits_used, 0)}
@@ -638,23 +642,23 @@ async def upgrade_plan(request: Request):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"plan": plan, "credits_used_today": 0}})
     return {"message": f"Upgraded to {plan} plan", "plan": plan}
 
+# ─── ElevenLabs Voices List ───
+@api_router.get("/voices")
+async def list_voices(request: Request):
+    await get_current_user(request)
+    return {"voices": [
+        {"id": "21m00Tcm4TlvDq8ikWAM", "name": "Rachel", "gender": "female"},
+        {"id": "pNInz6obpgDQGcFmaJgB", "name": "Adam", "gender": "male"},
+    ]}
+
 # ─── Health Check ───
 @api_router.get("/")
 async def root():
-    return {"message": "XOVA API is running", "version": "1.0.0"}
+    return {"message": "XOVA API running", "version": "2.0.0", "ai": "Groq (llama3-70b)", "voice": "ElevenLabs"}
 
 app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

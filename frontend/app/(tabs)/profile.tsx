@@ -117,6 +117,12 @@ export default function ProfileScreen() {
           ))}
 
           {/* Actions */}
+          <TouchableOpacity testID="upgrade-btn" style={[styles.actionBtn, { borderColor: COLORS.primary.main + '30' }]} onPress={() => router.push('/payment')}>
+            <MaterialCommunityIcons name="diamond-stone" size={22} color={COLORS.primary.main} />
+            <Text style={[styles.actionText, { color: COLORS.primary.main }]}>Upgrade Plan</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.primary.main} />
+          </TouchableOpacity>
+
           <TouchableOpacity testID="settings-btn" style={styles.actionBtn} onPress={() => router.push('/settings')}>
             <MaterialCommunityIcons name="cog-outline" size={22} color={COLORS.text.secondary} />
             <Text style={styles.actionText}>Settings</Text>

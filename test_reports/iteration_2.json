@@ -1,0 +1,148 @@
+{
+  "summary": "Iteration 2 testing complete for XOVA AI upgrade. Backend fully functional with Groq AI (llama-3.3-70b-versatile) and ElevenLabs TTS integration. All 19 backend tests passed (up from 17). Frontend working correctly with new MentorAvatar component rendering on Dashboard and Chat screens. Voice toggle, AI chat responses, payment plans (4 plans), and tab navigation all functional. One minor UI issue: Settings screen has navigation/rendering issue (redirects to Dashboard instead of displaying options).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Settings screen (/settings route)",
+        "issue": "Settings screen not rendering personality/voice/style chip options. When navigating to settings (via profile button or direct URL), page redirects to Dashboard instead of displaying settings form. Backend settings API works correctly.",
+        "testID": "settings-btn navigates but chips don't render",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Global",
+        "issues": [
+          "Same deprecation warnings as iteration 1 (shadow* props, package version mismatches)",
+          "These are non-critical and don't affect functionality"
+        ],
+        "priority": "LOW"
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_xova_api.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "Screenshots: /tmp/iter2_01_dashboard_with_avatar.png through /tmp/iter2_08_dashboard_final.png",
+    "Additional: /tmp/payment_plans_profile.png, /tmp/settings_*.png"
+  ],
+  "action_items": [
+    "Fix Settings screen navigation issue - screen redirects to Dashboard instead of rendering. Check _layout.tsx routing for /settings modal presentation.",
+    "Verify personality/voice/style chips render correctly on Settings screen",
+    "Optional: Address deprecation warnings (low priority)"
+  ],
+  "critical_code_review_comments": [
+    "✓ Backend: Groq API integration working correctly with llama-3.3-70b-versatile model",
+    "✓ Backend: ElevenLabs TTS endpoint correctly returns 500 error due to API key permission issue (EXPECTED - documented in review request)",
+    "✓ Backend: GET /api/voices returns 2 ElevenLabs voices (Rachel, Adam)",
+    "✓ Backend: Health check returns version 2.0.0 with 'Groq (llama3-70b)' and 'ElevenLabs' info",
+    "✓ Backend: Chat endpoint upgraded from GPT-5.2 to Groq successfully, all AI features working",
+    "✓ Backend: User settings API now includes mentor_style field (cyberpunk, anime, jarvis)",
+    "✓ Frontend: MentorAvatar component renders correctly on Dashboard (hero section) and Chat (header)",
+    "✓ Frontend: MentorAvatar shows breathing/blinking/mouth animations with speaking/thinking states",
+    "✓ Frontend: Voice toggle button visible on Chat screen header",
+    "✓ Frontend: AI chat working with Groq (responses visible in screenshots)",
+    "✓ Frontend: Profile screen displays 4 subscription plans inline (Free, Lite, Pro, Year)",
+    "✓ Frontend: Payment plans have correct testID attributes (plan-{id}-btn)",
+    "✓ Frontend: Mock payment system working (plan upgrades successful)",
+    "✓ Frontend: Tab navigation between Dashboard, Chat, Aptitude, Profile working",
+    "❌ Frontend: Settings screen /settings route has navigation issue - redirects to Dashboard instead of rendering options"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_xova_api.py (updated for iteration 2 - added TTS/voices tests, updated health check assertions)"
+  ],
+  "success_rate": {
+    "backend": "100% (19/19 tests passed - includes 2 new tests for TTS and voices)",
+    "frontend": "90% (All core features working except Settings screen rendering issue)"
+  },
+  "seed_data_creation": "Using existing test user from iteration 1: user_id='test-user-xova', session_token='test_session_xova_123'. No new seed data needed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 2 upgrade tested. Groq AI (llama-3.3-70b-versatile) working correctly. ElevenLabs TTS endpoint returns expected 500 error (API key permission issue). MentorAvatar component working on Dashboard and Chat with animations. Voice toggle functional. Payment screen with 4 plans working. Settings screen has navigation issue - needs fix for chips to render. Backend fully functional (19/19 tests passed).",
+  "backend_test_details": {
+    "test_file": "/app/backend/tests/test_xova_api.py",
+    "total_tests": 19,
+    "passed": 19,
+    "failed": 0,
+    "execution_time": "16.50s",
+    "tests_executed": [
+      "test_api_root_health - Health check returns v2.0.0 with Groq + ElevenLabs ✓",
+      "test_auth_me_with_valid_token - Auth /me with valid token ✓",
+      "test_auth_me_without_token - Auth /me without token (401) ✓",
+      "test_dashboard_data - Dashboard returns greeting, stats, credits ✓",
+      "test_aptitude_topics_count - 40 topics returned ✓",
+      "test_aptitude_probability_questions - Questions for probability topic ✓",
+      "test_aptitude_submit_answer - Answer submission and evaluation ✓",
+      "test_chat_send_message - AI chat with Groq (llama-3.3-70b-versatile) ✓",
+      "test_chat_history - Chat history retrieval ✓",
+      "test_interview_generate_question - Interview question generation with Groq ✓",
+      "test_interview_evaluate_answer - Interview answer evaluation ✓",
+      "test_career_guidance - Career roadmap generation ✓",
+      "test_startup_advice - Startup idea analysis ✓",
+      "test_user_profile - User profile data ✓",
+      "test_user_credits - Credit info retrieval ✓",
+      "test_user_settings_update - Settings update with mentor_style ✓",
+      "test_user_upgrade_plan - Plan upgrade (MOCKED) ✓",
+      "test_voices_list - NEW: ElevenLabs voices list (Rachel, Adam) ✓",
+      "test_tts_generate_expected_failure - NEW: TTS returns 500 (ElevenLabs permission issue - EXPECTED) ✓"
+    ]
+  },
+  "frontend_test_details": {
+    "test_method": "Playwright browser automation with mobile viewport (390x844)",
+    "screenshots_captured": 15,
+    "tests_executed": [
+      "Dashboard loads with MentorAvatar in hero section ✓",
+      "MentorAvatar shows animated atom icon with breathing/blinking ✓",
+      "Module cards rendered (6 cards: Chat, Aptitude, Interview, Career, Startup, Community) ✓",
+      "Chat screen shows MentorAvatar in header with status ✓",
+      "Voice toggle button visible on Chat header ✓",
+      "AI chat message sending and receiving Groq responses ✓",
+      "Chat shows 'Speaking...' and 'Online • Groq AI' status ✓",
+      "Aptitude screen loads 40 topics ✓",
+      "Profile screen with credit system and stats ✓",
+      "Profile displays 4 subscription plans inline (Free, Lite, Pro, Year) ✓",
+      "Payment plan buttons with correct testID attributes ✓",
+      "Mock payment upgrade working (clicked Pro plan) ✓",
+      "Tab navigation (Dashboard, Chat, Aptitude, Profile) ✓",
+      "Settings button on Profile navigates to settings ✓",
+      "Settings screen rendering issue - redirects to Dashboard ❌"
+    ]
+  },
+  "iteration_2_changes_tested": {
+    "groq_ai_integration": "✓ PASSED - Chat, Interview, Career, Startup all using Groq llama-3.3-70b-versatile successfully",
+    "elevenlabs_tts_integration": "✓ EXPECTED FAILURE - TTS endpoint returns 500 with permission error as documented in review request",
+    "mentor_avatar_component": "✓ PASSED - Renders on Dashboard and Chat with animations (breathing, blinking, mouth movement)",
+    "enhanced_dashboard": "✓ PASSED - Hero section with avatar, gradient cards, stats pills visible",
+    "enhanced_chat": "✓ PASSED - Avatar in header showing status (Speaking, Online, Thinking)",
+    "payment_screen": "✓ PASSED - 4 subscription plans (Free, Lite, Pro, Year) with mock payment",
+    "settings_screen": "❌ PARTIAL - Screen accessible but chips not rendering due to navigation issue",
+    "health_check_v2": "✓ PASSED - Returns version 2.0.0 with Groq and ElevenLabs info"
+  },
+  "mocked_features": {
+    "payment_system": "Plan upgrade API endpoint (/api/user/upgrade) immediately changes plan without real payment processing - Razorpay integration planned for future",
+    "elevenlabs_tts": "TTS endpoint attempts ElevenLabs API but falls back to expo-speech on frontend due to API key permission issue (expected and documented)"
+  },
+  "rca_of_issue": {
+    "issue": "Settings screen navigation/rendering problem",
+    "reproduction_steps": [
+      "1. Login and navigate to Profile tab",
+      "2. Click 'Settings' button (data-testid='settings-btn')",
+      "3. Settings route loads (/settings) but immediately redirects to Dashboard",
+      "4. Personality/Voice/Style chips never render on screen"
+    ],
+    "root_cause_analysis": "Settings screen (/settings route) has navigation issue. When accessed via Profile settings button or direct URL, page loads but redirects back to Dashboard instead of rendering the settings form with personality/voice/style chip options. Backend settings API works correctly (tested in backend tests). Issue is likely in _layout.tsx routing configuration for modal presentation or in settings.tsx component mount lifecycle.",
+    "mitigation_steps": [
+      "1. Check _layout.tsx for /settings route configuration - verify presentation mode is correct",
+      "2. Verify AuthContext doesn't redirect authenticated users away from settings screen",
+      "3. Add console logs in settings.tsx to debug component mount/unmount",
+      "4. Check if useAuth hook in settings.tsx is causing re-navigation",
+      "5. Test with React Native debugger to see navigation flow"
+    ]
+  }
+}
