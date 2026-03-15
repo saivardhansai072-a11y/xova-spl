@@ -420,7 +420,13 @@ async def send_chat(request: Request, body: ChatRequest):
     audio_base64 = None
     if body.voice_enabled:
         try:
-            voice_id = VOICE_IDS.get(user.get("mentor_voice", "female"), VOICE_IDS["female"])
+            # Get voice ID based on character, fallback to user preference, then default
+            character_id = body.character_id or user.get("mentor_character", "zero_two")
+            voice_id = VOICE_IDS.get(character_id)
+            if not voice_id:
+                # Fallback to gender-based voice
+                voice_id = VOICE_IDS.get(user.get("mentor_voice", "female"), VOICE_IDS["female"])
+            
             audio_generator = eleven_client.text_to_speech.convert(
                 text=ai_response[:500],  # Limit TTS length
                 voice_id=voice_id,
