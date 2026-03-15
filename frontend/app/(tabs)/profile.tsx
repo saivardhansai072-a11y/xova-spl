@@ -127,10 +127,11 @@ export default function ProfileScreen() {
 
           <Link href="/settings" asChild>
             <TouchableOpacity testID="settings-btn" style={styles.actionBtn}>
-            <MaterialCommunityIcons name="cog-outline" size={22} color={COLORS.text.secondary} />
-            <Text style={styles.actionText}>Settings</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.text.disabled} />
-          </TouchableOpacity>
+              <MaterialCommunityIcons name="cog-outline" size={22} color={COLORS.text.secondary} />
+              <Text style={styles.actionText}>Settings</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.text.disabled} />
+            </TouchableOpacity>
+          </Link>
 
           <TouchableOpacity testID="logout-btn" style={[styles.actionBtn, { borderColor: COLORS.accent.error + '30' }]} onPress={logout}>
             <MaterialCommunityIcons name="logout" size={22} color={COLORS.accent.error} />
