@@ -90,7 +90,7 @@ export default function DashboardScreen() {
                   </View>
                 </View>
               </View>
-              <MentorAvatar style={(user?.mentor_style as any) || 'cyberpunk'} size="medium" />
+              <MentorAvatar characterId={characterId} size="medium" showName />
             </View>
           </LinearGradient>
 
