@@ -35,9 +35,21 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # ─── ElevenLabs Voice IDs ───
+# Female voices
 VOICE_IDS = {
-    "female": "21m00Tcm4TlvDq8ikWAM",  # Rachel
-    "male": "pNInz6obpgDQGcFmaJgB",     # Adam
+    # Female voices
+    "female": "21m00Tcm4TlvDq8ikWAM",       # Rachel - warm, professional
+    "zero_two": "EXAVITQu4vr4xnSDxMaL",     # Bella - youthful, playful
+    "hinata": "piTKgcLEGmPE4e6mEKli",       # Nicole - soft, gentle
+    "mikasa": "XB0fDUnXU5powFXDhCwa",       # Charlotte - elegant, strong
+    "tsunade": "AZnzlk1XvdvUeBnXmlld",      # Domi - energetic, powerful
+    "suzume": "MF3mGyEYCl7XYWbV9V6O",       # Elli - emotional, caring
+    
+    # Male voices
+    "male": "pNInz6obpgDQGcFmaJgB",         # Adam - deep, authoritative
+    "naruto": "TxGEqnHWrfWFTfGW9XjX",       # Josh - casual, energetic
+    "luffy": "yoZ06aMxZJJ28mfd3POQ",        # Sam - young, adventurous
+    "goku": "VR6AewLTigWG4xSOukaG",         # Arnold - strong, bold
 }
 
 # ─── Models ───
