@@ -5,7 +5,7 @@ import os
 @pytest.fixture
 def base_url():
     """Public backend URL"""
-    return os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://xova-career-guide.preview.emergentagent.com')
+    return os.environ.get('EXPO_PUBLIC_BACKEND_URL', 'https://xova-ai-mentor-1.preview.emergentagent.com')
 
 @pytest.fixture
 def test_session_token():

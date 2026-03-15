@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS, SPACING, FONT_SIZES, SHADOWS, API_URL } from '../../src/constants/theme';
 
@@ -117,13 +117,16 @@ export default function ProfileScreen() {
           ))}
 
           {/* Actions */}
-          <TouchableOpacity testID="upgrade-btn" style={[styles.actionBtn, { borderColor: COLORS.primary.main + '30' }]} onPress={() => router.push('/payment')}>
-            <MaterialCommunityIcons name="diamond-stone" size={22} color={COLORS.primary.main} />
-            <Text style={[styles.actionText, { color: COLORS.primary.main }]}>Upgrade Plan</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.primary.main} />
-          </TouchableOpacity>
+          <Link href="/payment" asChild>
+            <TouchableOpacity testID="upgrade-btn" style={[styles.actionBtn, { borderColor: COLORS.primary.main + '30' }]}>
+              <MaterialCommunityIcons name="diamond-stone" size={22} color={COLORS.primary.main} />
+              <Text style={[styles.actionText, { color: COLORS.primary.main }]}>Upgrade Plan</Text>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.primary.main} />
+            </TouchableOpacity>
+          </Link>
 
-          <TouchableOpacity testID="settings-btn" style={styles.actionBtn} onPress={() => router.push('/settings')}>
+          <Link href="/settings" asChild>
+            <TouchableOpacity testID="settings-btn" style={styles.actionBtn}>
             <MaterialCommunityIcons name="cog-outline" size={22} color={COLORS.text.secondary} />
             <Text style={styles.actionText}>Settings</Text>
             <MaterialCommunityIcons name="chevron-right" size={20} color={COLORS.text.disabled} />

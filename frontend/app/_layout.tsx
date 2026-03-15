@@ -19,10 +19,15 @@ function RootLayoutNav() {
       if (hash && hash.includes('session_id=')) return;
     }
 
-    const inTabs = segments[0] === '(tabs)';
-    if (!user && inTabs) {
+    // Simple: index (login) = segments is empty or first segment is empty
+    const isIndex = segments.length === 0 || !segments[0] || segments[0] === 'index';
+    const isAuthCallback = segments[0] === 'auth-callback';
+
+    if (!user && !isIndex && !isAuthCallback) {
+      // Not authenticated, not on login → go to login
       router.replace('/');
-    } else if (user && !inTabs && segments[0] !== 'auth-callback') {
+    } else if (user && isIndex) {
+      // Authenticated on login → go to dashboard
       router.replace('/(tabs)');
     }
   }, [user, loading, segments]);

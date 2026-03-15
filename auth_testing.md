@@ -37,16 +37,16 @@ print('User ID: ' + userId);
 ## Step 2: Test Backend APIs
 ```bash
 # Test auth
-curl -X GET "https://xova-career-guide.preview.emergentagent.com/api/auth/me" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+curl -X GET "https://xova-ai-mentor-1.preview.emergentagent.com/api/auth/me" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
 # Test dashboard
-curl -X GET "https://xova-career-guide.preview.emergentagent.com/api/dashboard" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+curl -X GET "https://xova-ai-mentor-1.preview.emergentagent.com/api/dashboard" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
 # Test aptitude topics
-curl -X GET "https://xova-career-guide.preview.emergentagent.com/api/aptitude/topics" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
+curl -X GET "https://xova-ai-mentor-1.preview.emergentagent.com/api/aptitude/topics" -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 
 # Test chat
-curl -X POST "https://xova-career-guide.preview.emergentagent.com/api/chat/send" -H "Authorization: Bearer YOUR_SESSION_TOKEN" -H "Content-Type: application/json" -d '{"message": "Hello XOVA"}'
+curl -X POST "https://xova-ai-mentor-1.preview.emergentagent.com/api/chat/send" -H "Authorization: Bearer YOUR_SESSION_TOKEN" -H "Content-Type: application/json" -d '{"message": "Hello XOVA"}'
 ```
 
 ## Step 3: Browser Testing
@@ -60,5 +60,5 @@ await page.context.add_cookies([{
     "secure": True,
     "sameSite": "None"
 }])
-await page.goto("https://xova-career-guide.preview.emergentagent.com")
+await page.goto("https://xova-ai-mentor-1.preview.emergentagent.com")
 ```

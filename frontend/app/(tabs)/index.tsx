@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, D
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, interpolate } from 'react-native-reanimated';
 import { useAuth } from '../../src/context/AuthContext';
 import MentorAvatar from '../../src/components/MentorAvatar';
@@ -125,44 +125,48 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>Modules</Text>
           <View style={styles.moduleGrid}>
             {MODULE_CARDS.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                testID={`module-${m.id}-btn`}
-                style={styles.moduleCard}
-                onPress={() => router.push(m.route as any)}
-                activeOpacity={0.7}
-              >
-                <LinearGradient colors={[m.color + '15', 'transparent']} style={styles.moduleGradient}>
-                  <View style={[styles.moduleIconBg, { backgroundColor: m.color + '20' }]}>
-                    <MaterialCommunityIcons name={m.icon as any} size={24} color={m.color} />
-                  </View>
-                  <Text style={styles.moduleTitle}>{m.title}</Text>
-                  <Text style={styles.moduleDesc}>{m.desc}</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+              <Link key={m.id} href={m.route as any} asChild>
+                <TouchableOpacity
+                  testID={`module-${m.id}-btn`}
+                  style={styles.moduleCard}
+                  activeOpacity={0.7}
+                >
+                  <LinearGradient colors={[m.color + '15', 'transparent']} style={styles.moduleGradient}>
+                    <View style={[styles.moduleIconBg, { backgroundColor: m.color + '20' }]}>
+                      <MaterialCommunityIcons name={m.icon as any} size={24} color={m.color} />
+                    </View>
+                    <Text style={styles.moduleTitle}>{m.title}</Text>
+                    <Text style={styles.moduleDesc}>{m.desc}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Link>
             ))}
           </View>
 
           {/* Talk to XOVA Banner */}
-          <TouchableOpacity testID="chat-cta-btn" style={styles.chatBanner} onPress={() => router.push('/(tabs)/chat')} activeOpacity={0.8}>
-            <LinearGradient colors={[COLORS.primary.dark + 'CC', COLORS.secondary.dark + 'CC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.chatBannerGradient}>
-              <View style={styles.chatBannerIcon}>
-                <MaterialCommunityIcons name="robot-happy-outline" size={28} color={COLORS.text.primary} />
-              </View>
-              <View style={styles.chatBannerText}>
-                <Text style={styles.chatBannerTitle}>Talk to XOVA</Text>
-                <Text style={styles.chatBannerSub}>Groq AI • ElevenLabs Voice • Instant responses</Text>
-              </View>
-              <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.text.primary} />
-            </LinearGradient>
-          </TouchableOpacity>
+          <Link href="/(tabs)/chat" asChild>
+            <TouchableOpacity testID="chat-cta-btn" style={styles.chatBanner} activeOpacity={0.8}>
+              <LinearGradient colors={[COLORS.primary.dark + 'CC', COLORS.secondary.dark + 'CC']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.chatBannerGradient}>
+                <View style={styles.chatBannerIcon}>
+                  <MaterialCommunityIcons name="robot-happy-outline" size={28} color={COLORS.text.primary} />
+                </View>
+                <View style={styles.chatBannerText}>
+                  <Text style={styles.chatBannerTitle}>Talk to XOVA</Text>
+                  <Text style={styles.chatBannerSub}>Groq AI • ElevenLabs Voice • Instant responses</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={24} color={COLORS.text.primary} />
+              </LinearGradient>
+            </TouchableOpacity>
+          </Link>
 
           {/* Settings shortcut */}
-          <TouchableOpacity testID="settings-shortcut-btn" style={styles.settingsRow} onPress={() => router.push('/settings')}>
-            <MaterialCommunityIcons name="cog-outline" size={20} color={COLORS.text.secondary} />
-            <Text style={styles.settingsText}>Customize Mentor</Text>
-            <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.text.disabled} />
-          </TouchableOpacity>
+          <Link href="/settings" asChild>
+            <TouchableOpacity testID="settings-shortcut-btn" style={styles.settingsRow}>
+              <MaterialCommunityIcons name="cog-outline" size={20} color={COLORS.text.secondary} />
+              <Text style={styles.settingsText}>Customize Mentor</Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={COLORS.text.disabled} />
+            </TouchableOpacity>
+          </Link>
         </ScrollView>
       </SafeAreaView>
     </View>
