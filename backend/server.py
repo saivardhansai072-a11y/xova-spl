@@ -57,6 +57,7 @@ class ChatRequest(BaseModel):
     message: str
     personality: str = "friendly"
     voice_enabled: bool = False
+    character_id: str = "zero_two"  # Character for voice selection
 
 class AptitudeSubmit(BaseModel):
     topic_id: str
