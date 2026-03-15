@@ -34,6 +34,10 @@ export default function DashboardScreen() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Get the selected character
+  const characterId = user?.mentor_character || 'zero_two';
+  const character = getCharacterById(characterId) || DEFAULT_CHARACTER;
+
   // Glow animation
   const glow = useSharedValue(0);
   useEffect(() => {
