@@ -1,87 +1,137 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence,
-  withDelay, Easing, interpolate
+  withDelay, Easing, interpolate, cancelAnimation
 } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../constants/theme';
+import { CharacterType, getCharacterById, DEFAULT_CHARACTER } from '../constants/characters';
 
 const { width: screenW } = Dimensions.get('window');
 
 type Props = {
-  style?: 'cyberpunk' | 'anime' | 'jarvis';
-  size?: 'small' | 'medium' | 'large';
+  characterId?: string;
+  size?: 'tiny' | 'small' | 'medium' | 'large' | 'xlarge';
   speaking?: boolean;
   thinking?: boolean;
   listening?: boolean;
+  showStatus?: boolean;
+  showName?: boolean;
+  glowIntensity?: 'low' | 'medium' | 'high';
 };
 
-export default function MentorAvatar({ style = 'cyberpunk', size = 'medium', speaking = false, thinking = false, listening = false }: Props) {
+export default function MentorAvatar({
+  characterId,
+  size = 'medium',
+  speaking = false,
+  thinking = false,
+  listening = false,
+  showStatus = true,
+  showName = false,
+  glowIntensity = 'medium',
+}: Props) {
+  const character = characterId ? getCharacterById(characterId) : DEFAULT_CHARACTER;
+  const char = character || DEFAULT_CHARACTER;
+
   // Animation values
   const breathe = useSharedValue(0);
-  const blink = useSharedValue(1);
-  const mouth = useSharedValue(0);
   const glow = useSharedValue(0);
   const pulse = useSharedValue(0);
   const ring1 = useSharedValue(0);
   const ring2 = useSharedValue(0);
+  const speakWave = useSharedValue(0);
+  const thinkPulse = useSharedValue(0);
+  const floatY = useSharedValue(0);
 
   useEffect(() => {
-    // Breathing
-    breathe.value = withRepeat(withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }), -1, true);
-    // Eye blink
-    blink.value = withRepeat(withSequence(
-      withDelay(3000, withTiming(0, { duration: 100 })),
-      withTiming(1, { duration: 100 }),
-    ), -1, false);
+    // Breathing animation
+    breathe.value = withRepeat(
+      withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
     // Glow pulse
-    glow.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }), -1, true);
-    // Rings
-    ring1.value = withRepeat(withTiming(1, { duration: 4000, easing: Easing.linear }), -1, false);
-    ring2.value = withRepeat(withTiming(1, { duration: 6000, easing: Easing.linear }), -1, false);
+    glow.value = withRepeat(
+      withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+    // Rings rotation
+    ring1.value = withRepeat(
+      withTiming(1, { duration: 8000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    ring2.value = withRepeat(
+      withTiming(1, { duration: 12000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    // Floating effect
+    floatY.value = withRepeat(
+      withTiming(1, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+
+    return () => {
+      cancelAnimation(breathe);
+      cancelAnimation(glow);
+      cancelAnimation(ring1);
+      cancelAnimation(ring2);
+      cancelAnimation(floatY);
+    };
   }, []);
 
+  // Speaking animation
   useEffect(() => {
     if (speaking) {
-      mouth.value = withRepeat(withTiming(1, { duration: 200 }), -1, true);
+      speakWave.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 150 }),
+          withTiming(0.3, { duration: 150 }),
+          withTiming(0.8, { duration: 100 }),
+          withTiming(0.2, { duration: 100 })
+        ),
+        -1,
+        false
+      );
     } else {
-      mouth.value = withTiming(0, { duration: 200 });
+      speakWave.value = withTiming(0, { duration: 200 });
     }
   }, [speaking]);
 
+  // Thinking animation
   useEffect(() => {
     if (thinking) {
-      pulse.value = withRepeat(withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) }), -1, true);
+      thinkPulse.value = withRepeat(
+        withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true
+      );
     } else {
-      pulse.value = withTiming(0, { duration: 300 });
+      thinkPulse.value = withTiming(0, { duration: 300 });
     }
   }, [thinking]);
 
-  const sizeMap = { small: 100, medium: 160, large: 240 };
+  const sizeMap = { tiny: 48, small: 72, medium: 120, large: 180, xlarge: 240 };
   const avatarSize = sizeMap[size];
+  const borderWidth = size === 'tiny' ? 1.5 : size === 'small' ? 2 : 3;
+  const glowOpacityBase = glowIntensity === 'low' ? 0.2 : glowIntensity === 'high' ? 0.6 : 0.4;
 
-  const bodyStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(breathe.value, [0, 1], [1, 1.02]) }],
+  // Animated styles
+  const containerStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: interpolate(floatY.value, [0, 1], [0, -4]) },
+      { scale: interpolate(breathe.value, [0, 1], [1, 1.02]) },
+    ],
   }));
 
-  const eyeStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: blink.value }],
-  }));
-
-  const mouthStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: interpolate(mouth.value, [0, 1], [0.3, 1]) }],
-    opacity: interpolate(mouth.value, [0, 1], [0.5, 1]),
-  }));
-
-  const glowStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(glow.value, [0, 1], [0.3, 0.8]),
-    transform: [{ scale: interpolate(glow.value, [0, 1], [1, 1.1]) }],
-  }));
-
-  const thinkStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(pulse.value, [0, 1], [0.4, 1]),
-    transform: [{ scale: interpolate(pulse.value, [0, 1], [0.95, 1.05]) }],
+  const outerGlowStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(glow.value, [0, 1], [glowOpacityBase, glowOpacityBase + 0.3]),
+    transform: [{ scale: interpolate(glow.value, [0, 1], [1, 1.08]) }],
   }));
 
   const ringStyle1 = useAnimatedStyle(() => ({
@@ -92,51 +142,144 @@ export default function MentorAvatar({ style = 'cyberpunk', size = 'medium', spe
     transform: [{ rotate: `${interpolate(ring2.value, [0, 1], [360, 0])}deg` }],
   }));
 
-  const mainColor = style === 'anime' ? '#FF6B9D' : style === 'jarvis' ? '#3A86FF' : COLORS.primary.main;
-  const secColor = style === 'anime' ? '#FFD93D' : style === 'jarvis' ? '#FFFFFF' : COLORS.secondary.main;
+  const thinkingStyle = useAnimatedStyle(() => ({
+    opacity: thinking ? interpolate(thinkPulse.value, [0, 1], [0.6, 1]) : 1,
+    transform: thinking ? [{ scale: interpolate(thinkPulse.value, [0, 1], [0.98, 1.02]) }] : [{ scale: 1 }],
+  }));
+
+  const speakingBorderStyle = useAnimatedStyle(() => ({
+    borderWidth: speaking ? interpolate(speakWave.value, [0, 1], [borderWidth, borderWidth + 2]) : borderWidth,
+    shadowOpacity: speaking ? interpolate(speakWave.value, [0, 1], [0.3, 0.8]) : 0.3,
+  }));
+
+  const statusColor = thinking
+    ? COLORS.accent.warning
+    : speaking
+    ? COLORS.accent.success
+    : listening
+    ? COLORS.accent.info
+    : COLORS.accent.success;
 
   return (
-    <View style={[styles.container, { width: avatarSize, height: avatarSize }]}>
-      {/* Outer glow */}
-      <Animated.View style={[styles.outerGlow, glowStyle, { width: avatarSize + 40, height: avatarSize + 40, borderRadius: (avatarSize + 40) / 2, borderColor: mainColor + '30' }]} />
+    <View style={[styles.wrapper, { width: avatarSize + 40, height: avatarSize + 60 }]}>
+      <Animated.View style={[styles.container, containerStyle, { width: avatarSize + 24, height: avatarSize + 24 }]}>
+        {/* Outer glow */}
+        <Animated.View
+          style={[
+            styles.outerGlow,
+            outerGlowStyle,
+            {
+              width: avatarSize + 32,
+              height: avatarSize + 32,
+              borderRadius: (avatarSize + 32) / 2,
+              backgroundColor: char.color + '20',
+              shadowColor: char.color,
+            },
+          ]}
+        />
 
-      {/* Rotating rings */}
-      <Animated.View style={[styles.ring, ringStyle1, { width: avatarSize + 20, height: avatarSize + 20, borderRadius: (avatarSize + 20) / 2, borderColor: mainColor + '20' }]}>
-        <View style={[styles.ringDot, { backgroundColor: mainColor, top: 0, left: '50%' }]} />
-      </Animated.View>
-      <Animated.View style={[styles.ring, ringStyle2, { width: avatarSize + 10, height: avatarSize + 10, borderRadius: (avatarSize + 10) / 2, borderColor: secColor + '15' }]}>
-        <View style={[styles.ringDot, { backgroundColor: secColor, bottom: 0, right: '50%' }]} />
-      </Animated.View>
+        {/* Rotating rings */}
+        {size !== 'tiny' && (
+          <>
+            <Animated.View
+              style={[
+                styles.ring,
+                ringStyle1,
+                {
+                  width: avatarSize + 20,
+                  height: avatarSize + 20,
+                  borderRadius: (avatarSize + 20) / 2,
+                  borderColor: char.color + '25',
+                },
+              ]}
+            >
+              <View style={[styles.ringDot, { backgroundColor: char.color }]} />
+            </Animated.View>
+            <Animated.View
+              style={[
+                styles.ring,
+                ringStyle2,
+                {
+                  width: avatarSize + 12,
+                  height: avatarSize + 12,
+                  borderRadius: (avatarSize + 12) / 2,
+                  borderColor: char.color + '15',
+                },
+              ]}
+            >
+              <View style={[styles.ringDot, styles.ringDotBottom, { backgroundColor: char.color }]} />
+            </Animated.View>
+          </>
+        )}
 
-      {/* Main body */}
-      <Animated.View style={[bodyStyle, thinking ? thinkStyle : {}, styles.body, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2, borderColor: mainColor + '60' }]}>
-        {/* Face background */}
-        <View style={[styles.faceInner, { backgroundColor: mainColor + '08', borderRadius: avatarSize / 2 }]}>
-          {/* Icon */}
-          <MaterialCommunityIcons
-            name={style === 'anime' ? 'emoticon-cool-outline' : style === 'jarvis' ? 'atom' : 'robot-happy-outline'}
-            size={avatarSize * 0.35}
-            color={mainColor}
+        {/* Main avatar */}
+        <Animated.View
+          style={[
+            styles.avatarContainer,
+            thinkingStyle,
+            speakingBorderStyle,
+            {
+              width: avatarSize,
+              height: avatarSize,
+              borderRadius: avatarSize / 2,
+              borderColor: char.color,
+              shadowColor: char.color,
+            },
+          ]}
+        >
+          {/* Background gradient */}
+          <LinearGradient
+            colors={[char.color + '30', 'transparent', char.color + '10']}
+            style={[styles.avatarGradient, { borderRadius: avatarSize / 2 }]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
           />
 
-          {/* Eyes */}
-          <View style={styles.eyeRow}>
-            <Animated.View style={[styles.eye, eyeStyle, { backgroundColor: mainColor, width: avatarSize * 0.08, height: avatarSize * 0.06 }]} />
-            <Animated.View style={[styles.eye, eyeStyle, { backgroundColor: mainColor, width: avatarSize * 0.08, height: avatarSize * 0.06 }]} />
-          </View>
+          {/* Character image */}
+          {char.image ? (
+            <Image
+              source={{ uri: char.image }}
+              style={[styles.avatarImage, { width: avatarSize - 4, height: avatarSize - 4, borderRadius: (avatarSize - 4) / 2 }]}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.placeholderAvatar, { backgroundColor: char.color + '15' }]}>
+              <MaterialCommunityIcons
+                name="account-plus"
+                size={avatarSize * 0.4}
+                color={char.color}
+              />
+            </View>
+          )}
 
-          {/* Mouth */}
-          <Animated.View style={[styles.mouth, mouthStyle, { backgroundColor: mainColor + '80', width: avatarSize * 0.15, height: avatarSize * 0.04 }]} />
-        </View>
-
-        {/* Status indicator */}
-        <View style={[styles.statusDot, { backgroundColor: thinking ? COLORS.accent.warning : speaking ? COLORS.accent.success : listening ? COLORS.accent.info : COLORS.accent.success }]} />
+          {/* Status indicator */}
+          {showStatus && (
+            <View
+              style={[
+                styles.statusDot,
+                {
+                  backgroundColor: statusColor,
+                  width: size === 'tiny' ? 8 : size === 'small' ? 10 : 14,
+                  height: size === 'tiny' ? 8 : size === 'small' ? 10 : 14,
+                  borderRadius: size === 'tiny' ? 4 : size === 'small' ? 5 : 7,
+                  bottom: size === 'tiny' ? 2 : size === 'small' ? 4 : 8,
+                  right: size === 'tiny' ? 2 : size === 'small' ? 4 : 8,
+                },
+              ]}
+            />
+          )}
+        </Animated.View>
       </Animated.View>
 
+      {/* Name label */}
+      {showName && size !== 'tiny' && (
+        <Text style={[styles.nameLabel, { color: char.color }]}>{char.name}</Text>
+      )}
+
       {/* Status text */}
-      {(thinking || speaking || listening) && (
-        <Text style={[styles.statusText, { color: mainColor }]}>
-          {thinking ? 'Thinking...' : speaking ? 'Speaking' : 'Listening...'}
+      {showStatus && (thinking || speaking || listening) && size !== 'tiny' && size !== 'small' && (
+        <Text style={[styles.statusText, { color: char.color }]}>
+          {thinking ? '🤔 Thinking...' : speaking ? '🗣️ Speaking' : '👂 Listening...'}
         </Text>
       )}
     </View>
@@ -144,15 +287,81 @@ export default function MentorAvatar({ style = 'cyberpunk', size = 'medium', spe
 }
 
 const styles = StyleSheet.create({
-  container: { alignItems: 'center', justifyContent: 'center' },
-  outerGlow: { position: 'absolute', borderWidth: 1 },
-  ring: { position: 'absolute', borderWidth: 1, borderStyle: 'dashed' },
-  ringDot: { position: 'absolute', width: 4, height: 4, borderRadius: 2 },
-  body: { borderWidth: 2, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  faceInner: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  eyeRow: { flexDirection: 'row', gap: 16, marginTop: 4 },
-  eye: { borderRadius: 4 },
-  mouth: { borderRadius: 4, marginTop: 4 },
-  statusDot: { position: 'absolute', bottom: 8, right: 8, width: 10, height: 10, borderRadius: 5, borderWidth: 1.5, borderColor: COLORS.background.default },
-  statusText: { fontSize: 11, fontWeight: '600', marginTop: 8, letterSpacing: 1 },
+  wrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outerGlow: {
+    position: 'absolute',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  ring: {
+    position: 'absolute',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+  },
+  ringDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    top: 0,
+    left: '50%',
+    marginLeft: -3,
+  },
+  ringDotBottom: {
+    top: undefined,
+    bottom: 0,
+    left: undefined,
+    right: '50%',
+    marginRight: -3,
+  },
+  avatarContainer: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  avatarGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  avatarImage: {
+    position: 'absolute',
+  },
+  placeholderAvatar: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  statusDot: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: COLORS.background.default,
+  },
+  nameLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 8,
+    letterSpacing: 0.5,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
 });
