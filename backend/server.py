@@ -638,6 +638,7 @@ async def update_settings(request: Request, body: SettingsUpdate):
     if body.mentor_personality: updates["mentor_personality"] = body.mentor_personality
     if body.mentor_voice: updates["mentor_voice"] = body.mentor_voice
     if body.mentor_style: updates["mentor_style"] = body.mentor_style
+    if body.mentor_character: updates["mentor_character"] = body.mentor_character
     if updates:
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": updates})
     return await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
