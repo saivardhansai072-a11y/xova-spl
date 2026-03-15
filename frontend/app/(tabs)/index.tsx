@@ -8,6 +8,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Eas
 import { useAuth } from '../../src/context/AuthContext';
 import MentorAvatar from '../../src/components/MentorAvatar';
 import { COLORS, SPACING, FONT_SIZES, API_URL } from '../../src/constants/theme';
+import { getCharacterById, DEFAULT_CHARACTER } from '../../src/constants/characters';
 
 const { width } = Dimensions.get('window');
 
