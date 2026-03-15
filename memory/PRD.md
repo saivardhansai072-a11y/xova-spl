@@ -6,10 +6,36 @@ XOVA is an AI mentor platform designed to help students improve skills, prepare 
 ## Tech Stack
 - **Frontend**: React Native (Expo SDK 54), Expo Router, TypeScript
 - **Backend**: FastAPI (Python), MongoDB
-- **AI**: OpenAI GPT-5.2 via Emergent LLM Key (emergentintegrations library)
+- **AI**: Groq API (Llama 3.3 70B Versatile)
+- **Voice**: ElevenLabs API (with expo-speech fallback)
 - **Auth**: Emergent Google OAuth
-- **Voice**: expo-speech (TTS)
-- **UI Theme**: Dark Cyberpunk/Jarvis with Neon Cyan (#00F3FF) + Electric Purple (#7B2CBF)
+- **UI Theme**: Dark Cyberpunk/Futuristic with Neon Cyan (#00F3FF) + Electric Purple (#7B2CBF)
+
+## Character System (NEW)
+XOVA features a comprehensive anime character-based mentor system:
+
+### User-Uploaded Characters (Custom)
+| Character | Voice | Personality | Description |
+|-----------|-------|-------------|-------------|
+| Zero Two | Female (Bella) | Playful | Energetic and confident mentor |
+| Hinata | Female (Nicole) | Supportive | Gentle and encouraging mentor |
+| Mikasa | Female (Charlotte) | Strict | Disciplined and focused mentor |
+| Tsunade | Female (Domi) | Teacher | Wise and powerful mentor |
+| Suzume | Female (Elli) | Friendly | Adventurous and caring mentor |
+
+### Popular Characters
+| Character | Voice | Personality | Description |
+|-----------|-------|-------------|-------------|
+| Naruto | Male (Josh) | Motivator | "Believe it!" Never give up mentor |
+| Luffy | Male (Sam) | Friendly | Adventurous free spirit mentor |
+| Goku | Male (Arnold) | Motivator | "Push your limits" mentor |
+
+### Voice System
+- Each character has a unique ElevenLabs voice
+- Female characters use female voice IDs
+- Male characters use male voice IDs  
+- Voices have different qualities (warm, energetic, gentle, strong)
+- Fallback to expo-speech if ElevenLabs fails
 
 ## Screens & Features
 
@@ -19,6 +45,7 @@ XOVA is an AI mentor platform designed to help students improve skills, prepare 
 - Feature highlights (Aptitude, Voice, Interview, Startup)
 
 ### 2. Dashboard (Tab)
+- Selected anime character avatar with animations
 - AI mentor greeting with user's name
 - Daily learning mission with progress bar
 - Stats grid (Questions, Accuracy, Topics, Plan)
@@ -27,14 +54,21 @@ XOVA is an AI mentor platform designed to help students improve skills, prepare 
 - Talk to XOVA CTA button
 
 ### 3. AI Mentor Chat (Tab)
-- Conversational AI with GPT-5.2
+- Conversational AI with Groq (Llama 3.3 70B)
+- Selected character avatar in header
+- Character-specific voice responses
 - Message history (persisted in MongoDB)
-- Text-to-Speech on AI responses (expo-speech)
-- Mentor personality adapts based on settings
+- Quick prompt suggestions
 - Credit system (deducts 1 credit per message)
-- Empty state with welcome message
+- Typing indicator with character name
 
-### 4. Aptitude Learning (Tab)
+### 4. Settings/Character Selection
+- Visual character selection grid
+- Preview of selected character
+- Personality selection (Teacher, Friendly, Motivator, Strict, Supportive)
+- Character info (voice type, description)
+
+### 5. Aptitude Learning (Tab)
 - 40 topics across 3 categories (Quantitative, Logical, Verbal)
 - Search and category filter
 - Topic detail screen with questions
@@ -43,41 +77,29 @@ XOVA is an AI mentor platform designed to help students improve skills, prepare 
 - Correct/incorrect feedback with explanations
 - Adaptive difficulty system
 - AI-generated questions when bank runs low
-- Score tracking per session
 
-### 5. Interview Practice
+### 6. Interview Practice
 - 4 categories: HR, Technical, Behavioral, Startup
 - AI generates interview questions
 - Text-based answer submission
 - AI evaluation with scores (Clarity, Confidence, Structure, Communication)
-- Strengths and improvement suggestions
 
-### 6. Career Guidance
+### 7. Career Guidance
 - 6 career fields (SE, Data Science, AI, Startup, PM, Cybersecurity)
 - AI-generated career roadmaps
 - 6-month plan with monthly milestones
-- Required skills and resources
 
-### 7. Startup Mentor
+### 8. Startup Mentor
 - Describe startup idea via text input
 - AI validation with score (0-100)
 - Analysis: Strengths, Challenges, Dev Steps, Marketing, Growth
 
-### 8. Profile (Tab)
+### 9. Profile (Tab)
 - User info (avatar, name, email)
 - Plan badge
 - Credit usage bar
 - Stats (Questions, Accuracy, Streak)
-- Subscription plans (Free, Lite ₹20/mo, Pro ₹35/mo, Year ₹349/yr)
-- **MOCK**: Plan upgrade is instant without real payment
-
-### 9. Settings
-- Mentor Personality (Teacher, Friendly, Motivator, Strict, Startup Coach, Supportive)
-- Mentor Voice (Female, Male)
-- Mentor Style (Cyberpunk, Anime, Jarvis)
-
-### 10. Community (Placeholder)
-- Coming Soon with feature preview
+- Subscription plans (Free, Lite, Pro, Year)
 
 ## Credit System
 | Plan | Credits/Day | Price |
@@ -87,39 +109,54 @@ XOVA is an AI mentor platform designed to help students improve skills, prepare 
 | Pro | 80 | ₹35/mo |
 | Year | Unlimited | ₹349/yr |
 
-Credits reset every 24 hours. Each AI interaction costs 1 credit.
-
 ## API Endpoints
 - `POST /api/auth/session` - Exchange OAuth session
 - `GET /api/auth/me` - Get current user
 - `POST /api/auth/logout` - Logout
 - `GET /api/dashboard` - Dashboard data
-- `POST /api/chat/send` - Send chat message
+- `POST /api/chat/send` - Send chat message (includes character_id for voice)
 - `GET /api/chat/history` - Chat history
 - `DELETE /api/chat/history` - Clear history
 - `GET /api/aptitude/topics` - List 40 topics
 - `GET /api/aptitude/topics/{id}/questions` - Topic questions
 - `POST /api/aptitude/submit` - Submit answer
-- `GET /api/aptitude/progress` - User progress
 - `POST /api/interview/question` - Generate question
 - `POST /api/interview/evaluate` - Evaluate answer
 - `POST /api/career/guidance` - Career roadmap
 - `POST /api/startup/advice` - Startup analysis
 - `GET /api/user/profile` - User profile
-- `PUT /api/user/settings` - Update settings
+- `PUT /api/user/settings` - Update settings (includes mentor_character)
 - `GET /api/user/credits` - Credit info
 - `POST /api/user/upgrade` - Upgrade plan (MOCK)
+- `POST /api/tts/generate` - Generate TTS audio
 
-## Mocked Features
-- Payment system: Plan upgrade is instant without real payment processing
-- Community: Placeholder with "Coming Soon" message
-- 3D Mentor Avatar: Represented as icon-based avatar (not 3D model)
-- Camera integration in interviews: Not yet implemented
+## Current Status
+✅ Implemented:
+- Google Authentication
+- AI Chat with Groq API
+- ElevenLabs Voice Integration (requires paid key)
+- Anime Character Selection System (5 custom + 3 popular)
+- Character-specific voices
+- Dashboard with character avatar
+- Settings screen with character selection
+- All core screens (Aptitude, Interview, Career, Startup)
+- Credit system
+- Futuristic cyberpunk theme
 
-## Next Steps
-- Implement real Google Play Billing for subscriptions
-- Build community discussion rooms with real-time messaging
-- Add 3D mentor avatar with animations (Lottie or Three.js)
-- Implement Speech-to-Text for voice input
-- Add learning streak notifications
-- Implement custom mentor creator with image upload
+🟡 Partial:
+- ElevenLabs voice synthesis (401 error - key needs paid subscription)
+- Falls back to expo-speech successfully
+
+❌ Not Yet Implemented:
+- Razorpay real payment integration
+- Custom character creator (upload your own image)
+- 3D animations for characters
+- Camera integration for interviews
+- Community features
+
+## Next Steps (Priority Order)
+1. Razorpay Payment Integration (test mode)
+2. Character animations (idle, talking, thinking)
+3. Custom mentor creator
+4. Interview camera integration
+5. Community features
