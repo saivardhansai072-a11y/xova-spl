@@ -68,6 +68,7 @@ class SettingsUpdate(BaseModel):
     mentor_personality: Optional[str] = None
     mentor_voice: Optional[str] = None
     mentor_style: Optional[str] = None
+    mentor_character: Optional[str] = None  # Character ID for avatar/voice
 
 class InterviewRequest(BaseModel):
     category: str = "hr"
